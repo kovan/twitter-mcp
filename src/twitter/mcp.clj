@@ -45,7 +45,12 @@
                                           :description "The numeric tweet ID to reply to"}
                                :text {:type "string"
                                       :description "Reply text (max 280 chars)"}}
-                  :required ["tweet_id" "text"]}}])
+                  :required ["tweet_id" "text"]}}
+   {:name "notifications"
+    :description "Get your recent Twitter/X notifications (likes, replies, retweets, mentions)."
+    :inputSchema {:type "object"
+                  :properties {:n {:type "number"
+                                   :description "Number of notifications (default 20)"}}}}])
 
 (defn- respond [id result]
   {:jsonrpc "2.0" :id id :result result})
@@ -105,6 +110,10 @@
             (let [data (api/create-tweet (:text arguments)
                          :reply-to-id (:tweet_id arguments))]
               (fmt/format-create-result data))
+
+            "notifications"
+            (let [data (api/notifications (clamp-n arguments 20))]
+              (fmt/format-notifications data))
 
             (throw (ex-info (str "Unknown tool: " name) {})))]
       (respond id (tool-result result)))

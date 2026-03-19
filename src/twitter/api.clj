@@ -262,3 +262,10 @@
     (when (not= 200 (:status resp))
       (throw (ex-info (str "Trending failed: HTTP " (:status resp)) {})))
     (:data resp)))
+
+(defn notifications
+  "Get recent notifications. Returns raw API response."
+  [n]
+  (graphql-get "Notifications"
+    {"count" n
+     "includePromotedContent" false}))

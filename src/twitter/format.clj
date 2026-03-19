@@ -175,3 +175,49 @@
     (if tweet-id
       (str "Tweet posted successfully.\nhttps://x.com/" (or screen-name "i") "/status/" tweet-id)
       "Tweet posted (could not extract URL from response).")))
+
+(defn format-notifications
+  "Format notifications response. Best-effort extraction from deeply nested structure."
+  [data]
+  (let [instructions (get-in data [:data :notifications_all :timeline :instructions])
+        entries (->> instructions
+                     (mapcat :entries)
+                     (filter #(str/starts-with? (or (:entryId %) "") "notification-")))]
+    (if (seq entries)
+      (str "# Notifications (" (count entries) ")\n\n"
+           (str/join "\n---\n\n"
+             (map-indexed
+               (fn [i entry]
+                 (try
+                   (let [content (get-in entry [:content :itemContent])
+                         notif-type (or (:notificationType content) "unknown")
+                         message (get-in content [:notification :message :text])
+                         ;; Try to get associated tweet
+                         tweet (some-> (get-in content [:tweet_results :result])
+                                       unwrap-tweet)
+                         tweet-text (when tweet
+                                     (or (get-in tweet [:legacy :full_text])
+                                         (get-in tweet [:legacy :text]) ""))
+                         tweet-id (when tweet (:rest_id tweet))
+                         user (when tweet (extract-user-info tweet))
+                         screen-name (or (:screen_name user) "")]
+                     (str (inc i) ". [" notif-type "] "
+                          (when (seq message) (str message "\n"))
+                          (when (seq tweet-text)
+                            (str "  " (subs tweet-text 0 (min 200 (count tweet-text))) "\n"))
+                          (when (and (seq screen-name) (seq tweet-id))
+                            (str "  https://x.com/" screen-name "/status/" tweet-id))))
+                   (catch Exception _ (str (inc i) ". [could not parse notification]"))))
+               entries)))
+      ;; Fallback: try extracting any notification-like items from the raw data
+      (let [all-notifs (->> (tree-seq coll? seq data)
+                            (filter #(and (map? %) (:notificationType %))))]
+        (if (seq all-notifs)
+          (str "# Notifications (" (count all-notifs) ")\n\n"
+               (str/join "\n"
+                 (map-indexed
+                   (fn [i n]
+                     (str (inc i) ". [" (:notificationType n) "] "
+                          (get-in n [:message :text] "")))
+                   all-notifs)))
+          "# Notifications\n\nNo notifications found or could not parse response.")))))
