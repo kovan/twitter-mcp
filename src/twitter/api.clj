@@ -64,7 +64,7 @@
 
 (defn- curl-authed
   "Authenticated curl with bearer + csrf. Returns {:status :body :data}."
-  [url & {:keys [method json-body]}]
+  [url & {:keys [method json-body form-body]}]
   (init-cookies!)
   (let [body-file (java.io.File/createTempFile "tw-api" ".json")
         args (cond-> ["curl" "-sSL"
@@ -82,6 +82,9 @@
                json-body
                (into ["-H" "Content-Type: application/json"
                       "-d" (json/write-str json-body)])
+               form-body
+               (into ["-H" "Content-Type: application/x-www-form-urlencoded"
+                      "-d" form-body])
                true
                (conj url))
         pb (ProcessBuilder. ^java.util.List args)
@@ -262,6 +265,19 @@
     (when (not= 200 (:status resp))
       (throw (ex-info (str "Trending failed: HTTP " (:status resp)) {})))
     (:data resp)))
+
+(defn follow-user
+  "Follow a Twitter user by screen name."
+  [screen-name]
+  (let [sn (str/replace screen-name #"^@" "")
+        resp (curl-authed "https://x.com/i/api/1.1/friendships/create.json"
+               :method :post
+               :form-body (str "screen_name=" (URLEncoder/encode sn "UTF-8") "&follow=true"))]
+    (when (not= 200 (:status resp))
+      (throw (ex-info (str "Follow failed: HTTP " (:status resp)) {})))
+    (let [user (:data resp)]
+      (str "Now following @" (or (:screen_name user) sn)
+           (when-let [n (:name user)] (str " (" n ")"))))))
 
 (defn notifications
   "Get recent notifications. Uses REST v2 endpoint (no GraphQL query ID needed)."

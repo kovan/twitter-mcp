@@ -50,7 +50,13 @@
     :description "Get your recent Twitter/X notifications (likes, replies, retweets, mentions)."
     :inputSchema {:type "object"
                   :properties {:n {:type "number"
-                                   :description "Number of notifications (default 20)"}}}}])
+                                   :description "Number of notifications (default 20)"}}}}
+   {:name "follow"
+    :description "Follow a Twitter/X user by their screen name."
+    :inputSchema {:type "object"
+                  :properties {:screen_name {:type "string"
+                                             :description "Twitter handle (with or without @)"}}
+                  :required ["screen_name"]}}])
 
 (defn- respond [id result]
   {:jsonrpc "2.0" :id id :result result})
@@ -114,6 +120,9 @@
             "notifications"
             (let [data (api/notifications (clamp-n arguments 20))]
               (fmt/format-notifications data))
+
+            "follow"
+            (api/follow-user (:screen_name arguments))
 
             (throw (ex-info (str "Unknown tool: " name) {})))]
       (respond id (tool-result result)))
