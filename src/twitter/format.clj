@@ -193,7 +193,7 @@
                                                     "") "notification-")))]
     (if (and notifications (seq notifications))
       (let [notif-items
-            (for [[nid notif] (take 20 (sort-by (fn [[_ n]] (- (or (:timestampMs n) 0))) notifications))]
+            (for [[nid notif] (take 20 (sort-by (fn [[_ n]] (- (or (parse-long (str (:timestampMs n))) 0))) notifications))]
               (let [message (get-in notif [:message :text])
                     tweet-ids (get-in notif [:template :aggregateUserActionsV1 :targetObjects])
                     first-tweet-id (some->> tweet-ids first :tweet :id)
